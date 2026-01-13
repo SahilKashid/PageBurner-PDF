@@ -1,18 +1,21 @@
 import React, { useState, useCallback } from 'react';
 import { Layout } from './components/Layout';
 import { FileUpload } from './components/FileUpload';
-import { processPdf } from './utils/pdfProcessor';
-import { Loader2, Download, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { processPdf, ProcessMode } from './utils/pdfProcessor';
+import { Loader2, Download, RefreshCw, AlertCircle, CheckCircle2, Eraser, Hash } from 'lucide-react';
 
-const getDownloadName = (filename: string) => {
+const getDownloadName = (filename: string, mode: ProcessMode) => {
   const lastDotIndex = filename.lastIndexOf('.');
-  if (lastDotIndex === -1) return `${filename}-numbered.pdf`;
+  const suffix = mode === 'add' ? '-numbered' : '-clean';
+  
+  if (lastDotIndex === -1) return `${filename}${suffix}.pdf`;
   const name = filename.substring(0, lastDotIndex);
   const ext = filename.substring(lastDotIndex);
-  return `${name}-numbered${ext}`;
+  return `${name}${suffix}${ext}`;
 };
 
 const App: React.FC = () => {
+  const [mode, setMode] = useState<ProcessMode>('add');
   const [state, setState] = useState<{
     file: File | null;
     processedUrl: string | null;
@@ -30,7 +33,7 @@ const App: React.FC = () => {
 
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const processedPdfBytes = await processPdf(arrayBuffer);
+      const processedPdfBytes = await processPdf(arrayBuffer, mode);
       const blob = new Blob([processedPdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
       
@@ -53,10 +56,42 @@ const App: React.FC = () => {
   return (
     <Layout>
       <div className="max-w-2xl mx-auto px-6 py-12 md:py-20">
-        <div className="text-center mb-8 space-y-3">
+        <div className="text-center mb-8 flex flex-col items-center gap-6">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tighter text-white">
-            Number your <span className="text-neutral-600">pages.</span>
+            {mode === 'add' ? (
+              <>Number your <span className="text-neutral-600">pages.</span></>
+            ) : (
+              <>Clean your <span className="text-neutral-600">pages.</span></>
+            )}
           </h1>
+
+          {/* Mode Switcher */}
+          {!state.file && (
+            <div className="inline-flex p-1 bg-neutral-900 rounded-xl border border-neutral-800">
+              <button
+                onClick={() => setMode('add')}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  mode === 'add' 
+                    ? 'bg-neutral-800 text-white shadow-sm ring-1 ring-white/5' 
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                }`}
+              >
+                <Hash className="w-4 h-4" />
+                Add Numbers
+              </button>
+              <button
+                onClick={() => setMode('remove')}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  mode === 'remove' 
+                    ? 'bg-neutral-800 text-white shadow-sm ring-1 ring-white/5' 
+                    : 'text-neutral-400 hover:text-white hover:bg-neutral-800/50'
+                }`}
+              >
+                <Eraser className="w-4 h-4" />
+                Remove
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="bg-neutral-950 rounded-2xl shadow-2xl border border-neutral-900 overflow-hidden ring-1 ring-white/5 transition-all duration-500 relative">
@@ -84,7 +119,9 @@ const App: React.FC = () => {
                 <div className="absolute inset-0 bg-white/10 blur-xl rounded-full"></div>
                 <Loader2 className="w-10 h-10 text-white animate-spin relative z-10" />
               </div>
-              <h3 className="text-lg font-medium text-white tracking-tight mb-1">Processing</h3>
+              <h3 className="text-lg font-medium text-white tracking-tight mb-1">
+                {mode === 'add' ? 'Adding page numbers...' : 'Removing page numbers...'}
+              </h3>
               <p className="text-neutral-500 text-sm max-w-xs truncate">{state.file.name}</p>
             </div>
           )}
@@ -98,13 +135,13 @@ const App: React.FC = () => {
               
               <h3 className="text-2xl font-bold text-white mb-2 tracking-tight">Ready</h3>
               <p className="text-neutral-500 mb-8 text-sm flex items-center gap-2">
-                 <span className="max-w-[200px] truncate">{getDownloadName(state.file.name)}</span>
+                 <span className="max-w-[200px] truncate">{getDownloadName(state.file.name, mode)}</span>
               </p>
 
               <div className="flex flex-col w-full max-w-xs gap-3">
                 <a
                   href={state.processedUrl}
-                  download={getDownloadName(state.file.name)}
+                  download={getDownloadName(state.file.name, mode)}
                   className="flex items-center justify-center gap-3 px-6 py-3.5 text-sm font-bold text-black bg-white rounded-xl hover:bg-neutral-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
                 >
                   <Download className="w-4 h-4" />
